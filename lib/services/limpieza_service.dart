@@ -1,6 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:gestion_dormitorios/config/api_config.dart';
+import 'package:gestion_dormitorios/core/config/api_config.dart';
 import 'package:gestion_dormitorios/Estudiantes/models/limpieza_model.dart'; 
 import 'package:gestion_dormitorios/Administrador/Monitor/models/criterio_limpieza_model.dart'; 
 import 'package:gestion_dormitorios/Administrador/Monitor/models/cuarto_para_evaluar_model.dart'; 

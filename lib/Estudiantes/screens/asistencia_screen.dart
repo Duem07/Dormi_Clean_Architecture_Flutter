@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http; // <--- NECESARIO PARA CONSULTAR DATOS
 
 // Imports de tu proyecto
-import 'package:gestion_dormitorios/config/api_config.dart'; // <--- IMPORTANTE
+import 'package:gestion_dormitorios/core/config/api_config.dart'; // <--- IMPORTANTE
 import 'package:gestion_dormitorios/providers/user_provider.dart';
 import 'package:gestion_dormitorios/providers/theme_provider.dart';
 import 'package:gestion_dormitorios/services/asistencia_service.dart';

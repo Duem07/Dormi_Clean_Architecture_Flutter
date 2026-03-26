@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:gestion_dormitorios/config/api_config.dart'; 
+import 'package:gestion_dormitorios/core/config/api_config.dart'; 
 import 'package:gestion_dormitorios/Estudiantes/models/reporte_model.dart' as estudiante_model; 
 import 'package:gestion_dormitorios/Administrador/Monitor/models/reporte_monitor_model.dart' as monitor_model;
 

@@ -1,6 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:gestion_dormitorios/config/api_config.dart'; 
+import 'package:gestion_dormitorios/core/config/api_config.dart'; 
 import 'package:gestion_dormitorios/Administrador/Preceptor/models/monitor_info_model.dart';
 
 class UsuarioService {

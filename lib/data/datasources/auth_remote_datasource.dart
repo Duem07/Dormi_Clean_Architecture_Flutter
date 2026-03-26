@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 // Asegúrate de que esta ruta sea la correcta según tu proyecto:
-import '../../config/api_config.dart'; 
+import '../../core/config/api_config.dart'; 
 import '../models/usuario_model.dart';
 import 'package:gestion_dormitorios/Estudiantes/models/institutional_user.dart';
 

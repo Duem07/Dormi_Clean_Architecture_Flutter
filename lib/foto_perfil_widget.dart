@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gestion_dormitorios/config/api_config.dart'; // Asegúrate de importar tu config
+import 'package:gestion_dormitorios/core/config/api_config.dart'; // Asegúrate de importar tu config
 
 class FotoPerfilWidget extends StatelessWidget {
   final String matricula;

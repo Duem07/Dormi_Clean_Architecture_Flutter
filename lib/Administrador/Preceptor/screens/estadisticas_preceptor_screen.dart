@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:gestion_dormitorios/config/api_config.dart';
+import 'package:gestion_dormitorios/core/config/api_config.dart';
 import 'package:gestion_dormitorios/services/limpieza_service.dart';
 import 'package:gestion_dormitorios/providers/user_provider.dart'; // Necesario para sacar la matrícula
 import 'package:gestion_dormitorios/grafico_estadisticas.dart';

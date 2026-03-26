@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'dart:async'; 
 
 // Importaciones del proyecto
-import 'package:gestion_dormitorios/config/api_config.dart';
+import 'package:gestion_dormitorios/core/config/api_config.dart';
 import 'package:gestion_dormitorios/widgets/firma_dialog_widget.dart';
 import 'package:gestion_dormitorios/widgets/ver_firma_dialog.dart';
 import 'package:gestion_dormitorios/providers/user_provider.dart';
