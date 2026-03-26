@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:gestion_dormitorios/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import './presentation/providers/auth_provider.dart';
 
 class RecuperarPasswordScreen extends StatefulWidget {
-  final String? correoInicial; // Opcional, si viene del perfil ya lo sabemos
+  final String? correoInicial;
   const RecuperarPasswordScreen({super.key, this.correoInicial});
 
   @override
@@ -10,17 +11,12 @@ class RecuperarPasswordScreen extends StatefulWidget {
 }
 
 class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
-  final _authService = AuthService();
-  
   final emailCtrl = TextEditingController();
   final codeCtrl = TextEditingController();
   final passCtrl = TextEditingController();
   final confirmPassCtrl = TextEditingController();
 
   int _step = 0; // 0:Correo, 1:Código, 2:Nueva Pass
-  bool _isLoading = false;
-
-  // 1. VARIABLES INDEPENDIENTES PARA CADA CAMPO
   bool _obscurePass = true;
   bool _obscureConfirm = true;
 
@@ -34,12 +30,10 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
 
   void _sendCode() async {
     if (emailCtrl.text.isEmpty) return;
-    setState(() => _isLoading = true);
     
-    // 1. Enviar OTP
-    final enviado = await _authService.sendOtpToEmail(emailCtrl.text.trim());
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final enviado = await authProvider.sendOtpToEmail(emailCtrl.text.trim());
     
-    setState(() => _isLoading = false);
     if (enviado) {
       setState(() => _step = 1);
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código enviado a tu correo')));
@@ -50,14 +44,12 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
 
   void _verifyCode() async {
     if (codeCtrl.text.isEmpty) return;
-    setState(() => _isLoading = true);
 
-    // 2. Verificar OTP
-    final valido = await _authService.verifyOtpCode(emailCtrl.text.trim(), codeCtrl.text.trim());
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final valido = await authProvider.verifyOtpCode(emailCtrl.text.trim(), codeCtrl.text.trim());
 
-    setState(() => _isLoading = false);
     if (valido) {
-      setState(() => _step = 2); // Pasar a cambio de contraseña
+      setState(() => _step = 2);
     } else {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Código incorrecto')));
     }
@@ -68,16 +60,15 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Las contraseñas no coinciden o están vacías')));
       return;
     }
-    setState(() => _isLoading = true);
 
-    // 3. Guardar nueva contraseña
-    final exito = await _authService.resetPassword(emailCtrl.text.trim(), passCtrl.text.trim());
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // Este método lo agregaremos al provider a continuación
+    final exito = await authProvider.resetPassword(emailCtrl.text.trim(), passCtrl.text.trim());
 
-    setState(() => _isLoading = false);
     if (exito) {
       if(mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Contraseña actualizada!')));
-        Navigator.pop(context); // Regresar
+        Navigator.pop(context);
       }
     } else {
       if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error al actualizar contraseña')));
@@ -86,11 +77,14 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Usamos el estado de carga del Provider
+    final isLoading = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Recuperar Contraseña')),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _isLoading 
+        child: isLoading 
           ? const Center(child: CircularProgressIndicator()) 
           : _buildCurrentStep(),
       ),
@@ -99,7 +93,7 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
 
   Widget _buildCurrentStep() {
     switch (_step) {
-      case 0: // Pedir Correo
+      case 0: 
         return Column(
           children: [
             const Text('Ingresa tu correo institucional para recibir un código.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16)),
@@ -121,7 +115,7 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
           ],
         );
 
-      case 1: // Pedir Código
+      case 1: 
         return Column(
           children: [
             Text('Código enviado a ${emailCtrl.text}', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -144,54 +138,39 @@ class _RecuperarPasswordScreenState extends State<RecuperarPasswordScreen> {
           ],
         );
 
-      case 2: // Nueva Contraseña (AQUÍ ESTÁN LOS CAMBIOS DEL OJITO)
+      case 2: 
         return Column(
           children: [
             const Text('Crea tu nueva contraseña', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            
-            // CAMPO 1: NUEVA CONTRASEÑA
             TextField(
               controller: passCtrl, 
-              obscureText: _obscurePass, // Variable 1
+              obscureText: _obscurePass,
               decoration: InputDecoration(
                 labelText: 'Nueva Contraseña', 
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock_outline),
-                // Botón del ojo
                 suffixIcon: IconButton(
                   icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () {
-                    setState(() {
-                      _obscurePass = !_obscurePass;
-                    });
-                  },
+                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
                 ),
               )
             ),
             const SizedBox(height: 15),
-
-            // CAMPO 2: CONFIRMAR CONTRASEÑA
             TextField(
               controller: confirmPassCtrl, 
-              obscureText: _obscureConfirm, // Variable 2
+              obscureText: _obscureConfirm,
               decoration: InputDecoration(
                 labelText: 'Confirmar', 
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock_outline),
-                // Botón del ojo
                 suffixIcon: IconButton(
                   icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () {
-                    setState(() {
-                      _obscureConfirm = !_obscureConfirm;
-                    });
-                  },
+                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
               )
             ),
             const SizedBox(height: 30),
-            
             SizedBox(
               width: double.infinity,
               height: 50,

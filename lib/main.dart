@@ -8,10 +8,16 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // Importaciones del proyecto
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
-import 'login_screen.dart';
+import 'presentation/pages/login_screen.dart';
 import 'Estudiantes/screens/home_screen.dart';
 import 'Administrador/Preceptor/screens/dashboard_preceptor_screen.dart';
 import 'Administrador/Monitor/screens/dashboard_monitor_screen.dart';
+
+// IMPORTACIONES DE ARQUITECTURA LIMPIA
+import 'package:gestion_dormitorios/data/datasources/auth_remote_datasource.dart';
+import 'package:gestion_dormitorios/domain/repositories/auth_repository.dart';
+import 'package:gestion_dormitorios/data/repositories/auth_repository_impl.dart';
+import 'package:gestion_dormitorios/presentation/providers/auth_provider.dart';
 
 // --- CONFIGURACIÓN DE NOTIFICACIONES LOCALES ---
 const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -90,14 +96,23 @@ void main() async {
   }
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
-      child: const GestionDormitoriosApp(),
-    ),
-  );
+  MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ChangeNotifierProvider(create: (_) => UserProvider()),
+      
+      // --- NUEVAS CAPAS DE ARQUITECTURA LIMPIA ---
+      Provider(create: (_) => AuthRemoteDataSource()),
+      ProxyProvider<AuthRemoteDataSource, AuthRepository>(
+        update: (_, ds, __) => AuthRepositoryImpl(ds),
+      ),
+      ChangeNotifierProvider(
+        create: (context) => AuthProvider(context.read<AuthRepository>()),
+      ),
+    ],
+    child: const GestionDormitoriosApp(),
+  ),
+);
 }
 
 class GestionDormitoriosApp extends StatelessWidget {

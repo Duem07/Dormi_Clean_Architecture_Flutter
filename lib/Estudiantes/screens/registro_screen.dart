@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gestion_dormitorios/services/auth_service.dart';
+import 'package:provider/provider.dart';
+// Importaciones de la nueva arquitectura
+import '../../presentation/providers/auth_provider.dart';
 import 'package:gestion_dormitorios/Estudiantes/models/institutional_user.dart';
 
 class RegistroScreen extends StatefulWidget {
@@ -10,7 +12,6 @@ class RegistroScreen extends StatefulWidget {
 }
 
 class _RegistroScreenState extends State<RegistroScreen> {
-  final _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
 
   // Controladores
@@ -27,7 +28,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
   bool _obscureConfirm = true;
   InstitutionalUser? _foundUser;
 
-  // --- LOGICA ---
+  // --- LOGICA REFACTORIZADA ---
 
   // Paso 0: Buscar en API Profesor y VALIDAR ACCESO
   void _searchUser() async {
@@ -39,62 +40,66 @@ class _RegistroScreenState extends State<RegistroScreen> {
     setState(() => _isLoading = true);
     FocusScope.of(context).unfocus();
 
-    // 1. Buscamos los datos básicos (Nombre, correo, etc)
-    final user = await _authService.checkInstitutionalUser(matriculaCtrl.text.trim());
+    // Accedemos al nuevo Provider (Capa de Presentación)
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    if (user != null) {
-      // Deducir Rol temporalmente para la validación
-      int rol = 3; // Estudiante por defecto
-      String idParaValidar = user.matricula.toString();
-      
-      if (user.numEmpleado != null && user.numEmpleado! > 0) {
-        rol = 1; // Preceptor
-        idParaValidar = user.numEmpleado.toString();
-      }
+    try {
+      // 1. Buscamos los datos básicos (Nombre, correo, etc)
+      // Nota: Asegúrate de que el método existe en tu nuevo AuthRepository/DataSource
+      final user = await authProvider.checkInstitutionalUser(matriculaCtrl.text.trim());
 
-      // 2. AHORA VALIDAMOS EL ACCESO CON TU BACKEND (NUEVO)
-      final acceso = await _authService.checkAccess(idParaValidar, rol);
+      if (user != null) {
+        int rol = 3; // Estudiante por defecto
+        String idParaValidar = user.matricula.toString();
+        
+        if (user.numEmpleado != null && user.numEmpleado! > 0) {
+          rol = 1; // Preceptor
+          idParaValidar = user.numEmpleado.toString();
+        }
 
-      setState(() => _isLoading = false);
+        // 2. VALIDAMOS EL ACCESO CON TU BACKEND
+        final acceso = await authProvider.checkAccess(idParaValidar, rol);
 
-      if (acceso['success'] == true) {
-        // SI TIENE PERMISO, AVANZAMOS
-        setState(() {
-          _foundUser = user;
-          _currentStep = 1; // Pasamos a verificar correo
-        });
+        setState(() => _isLoading = false);
+
+        if (acceso['success'] == true) {
+          setState(() {
+            _foundUser = user;
+            _currentStep = 1; 
+          });
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(acceso['message'] ?? 'Acceso denegado'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            )
+          );
+        }
       } else {
-        // NO TIENE PERMISO (Externo o Depto incorrecto)
-        // Mostramos Alerta Roja y NO avanzamos
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(acceso['message'] ?? 'Acceso denegado'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          )
-        );
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario no encontrado en la API escolar.')));
       }
-
-    } else {
+    } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario no encontrado en la API escolar.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     }
   }
+
   // Paso 1: Verificar Correo
- void _verifyEmail() async {
+  void _verifyEmail() async {
     if (_foundUser == null) return;
     
-    // Validación de correo
     if (emailVerifyCtrl.text.trim().toLowerCase() != _foundUser!.correoInstitucional.toLowerCase()) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El correo no coincide con el registro oficial.')));
-       return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El correo no coincide con el registro oficial.')));
+        return;
     }
 
     setState(() => _isLoading = true);
-    
-    // --- CAMBIO AQUÍ: LLAMADA REAL ---
-    final enviado = await _authService.sendOtpToEmail(emailVerifyCtrl.text.trim());
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    final enviado = await authProvider.sendOtpToEmail(emailVerifyCtrl.text.trim());
 
     setState(() => _isLoading = false);
 
@@ -110,14 +115,14 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
   }
 
-// Paso 2: Validar Código REAL
+  // Paso 2: Validar Código REAL
   void _validateCode() async {
     if (codeCtrl.text.trim().isEmpty) return;
 
     setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // --- CAMBIO AQUÍ: VALIDACIÓN REAL ---
-    final esValido = await _authService.verifyOtpCode(
+    final esValido = await authProvider.verifyOtpCode(
       emailVerifyCtrl.text.trim(), 
       codeCtrl.text.trim()
     );
@@ -125,7 +130,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
     setState(() => _isLoading = false);
 
     if (esValido) {
-      // Si es válido, pasamos al siguiente paso
       setState(() => _currentStep = 3);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Código correcto.'))
@@ -137,27 +141,25 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
   }
 
-// Paso 3: Guardar en TU Base de Datos SQL
+  // Paso 3: Finalizar Registro en SQL
   void _finalizeRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    // Deducir Rol
-    int rol = 3; // Estudiante
+    int rol = 3; 
     if (_foundUser!.numEmpleado != null && _foundUser!.numEmpleado! > 0) {
-      rol = 1; // Preceptor
+      rol = 1; 
     }
 
     String idAGuardar = (_foundUser!.matricula ?? _foundUser!.numEmpleado).toString();
     
-    // --- AQUÍ ESTÁ LA MAGIA ---
-    // Usamos los datos que ya bajamos de la API del profe para llenar tu BD
-    final result = await _authService.register(
+    final result = await authProvider.register(
       usuarioID: idAGuardar, 
       password: passCtrl.text.trim(), 
       idRol: rol,
-      nombre: '${_foundUser!.nombre} ${_foundUser!.apellidos}', // Nombre completo armado
+      nombre: '${_foundUser!.nombre} ${_foundUser!.apellidos}', 
       carrera: _foundUser!.leNombreEscuelaOficial ?? 'No especificada',
       correo: _foundUser!.correoInstitucional
     );
@@ -166,13 +168,9 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
     if (result['success'] == true) {
       if (!mounted) return;
-      
-      // Mensaje de éxito
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('¡Cuenta creada con éxito! Tus datos han sido sincronizados.'))
       );
-      
-      // Regresamos al Login para que entre
       Navigator.pop(context); 
     } else {
       if (!mounted) return;
@@ -182,7 +180,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
   }
 
-  // --- UI ---
+  // --- UI (Sin cambios significativos, solo mantenimiento) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,8 +191,8 @@ class _RegistroScreenState extends State<RegistroScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-             if (_currentStep > 0) setState(() => _currentStep--);
-             else Navigator.pop(context);
+              if (_currentStep > 0) setState(() => _currentStep--);
+              else Navigator.pop(context);
           },
         ),
       ),
@@ -202,22 +200,22 @@ class _RegistroScreenState extends State<RegistroScreen> {
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(
           children: [
-             Image.asset('assets/logoulv.png', height: 100),
-             const SizedBox(height: 10),
-             const Text('HOGAR DE VARONES\nUNIVERSITARIOS', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-             const SizedBox(height: 25),
+              Image.asset('assets/logoulv.png', height: 100),
+              const SizedBox(height: 10),
+              const Text('HOGAR DE VARONES\nUNIVERSITARIOS', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 25),
 
-             Container(
-               margin: const EdgeInsets.symmetric(horizontal: 20),
-               padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-               decoration: BoxDecoration(
-                 color: const Color(0xFF002D62),
-                 borderRadius: BorderRadius.circular(30)
-               ),
-               child: _isLoading 
-                 ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                 : Form(key: _formKey, child: _buildStepContent()),
-             )
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF002D62),
+                  borderRadius: BorderRadius.circular(30)
+                ),
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                  : Form(key: _formKey, child: _buildStepContent()),
+              )
           ],
         ),
       ),
@@ -234,7 +232,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
     }
   }
 
-  // UI Pasos
   Widget _step0Search() {
     return Column(
       children: [
@@ -276,7 +273,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
         const SizedBox(height: 20),
         Text('Código enviado a:\n${_foundUser?.correoOculto}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
         const SizedBox(height: 20),
-        _field(codeCtrl, 'Código (1234)', Icons.pin, isNumber: true),
+        _field(codeCtrl, 'Código', Icons.pin, isNumber: true),
         const SizedBox(height: 20),
         _btn('VALIDAR', _validateCode)
       ],
@@ -297,7 +294,6 @@ class _RegistroScreenState extends State<RegistroScreen> {
     );
   }
 
-  // Widgets pequeños
   Widget _row(String l, String v) => Padding(padding: const EdgeInsets.only(bottom: 5), child: Row(children: [Text('$l ', style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)), Expanded(child: Text(v, style: const TextStyle(color: Colors.white)))]));
   
   Widget _field(TextEditingController c, String l, IconData i, {bool isNumber = false}) {
